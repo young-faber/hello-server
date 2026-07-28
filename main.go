@@ -30,10 +30,8 @@ func main() {
 	})
 	http.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
 		var user User
-		// user := User{
-		// 	Name: "Ars",
-		// 	Age:  16,
-		// }
+		var users []User
+
 		if r.Method == "GET" {
 			fmt.Fprint(w, r.Method)
 		} else {
@@ -47,10 +45,13 @@ func main() {
 		}
 
 		err = json.Unmarshal(body, &user)
+
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+
+		//append(users, user)
 
 		fmt.Println(user, user.Age, user.Name)
 	})
