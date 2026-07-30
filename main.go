@@ -54,11 +54,13 @@ func main() {
 			fmt.Fprintf(w, "Added: %v.\n", user.Name)
 		}
 		if r.Method == http.MethodGet {
-			data, err := json.Marshal(user)
+			w.Header().Set("Content-Type", "application/json")
+			data, err := json.Marshal(users)
 			if err != nil {
-				fmt.Println("U have some problem, guys.")
+				fmt.Printf("U have some problem, guys. %v", err)
+				return
 			}
-			w.Write(data)
+			_, err = w.Write(data)
 		}
 
 	})
