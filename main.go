@@ -7,17 +7,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	// "path"
 	"io"
 )
 
 type User struct {
+	Id   int
 	Name string
 	Age  int
 }
 
 var users []User
+var id int
 
 func main() {
 	fmt.Println("Hello, Web!")
@@ -49,19 +52,50 @@ func main() {
 				return
 			}
 
+			user.Id = id
+			id++
+
 			users = append(users, user)
 
 			fmt.Fprintf(w, "Added: %v.\n", user.Name)
+			return
 		}
 		if r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
+			id_query := r.URL.Query().Get("id")
+			if id_query != "" {
+				new_id_query, err := strconv.Atoi(id_query)
+
+				if err != nil {
+					fmt.Println("You have a problem with a strconv")
+					http.Error(w, "Wrong input, id has to be an integer", http.StatusBadRequest)
+				}
+
+				for _, user := range users {
+					if user.Id == new_id_query {
+						data, err := json.Marshal(user)
+
+						if err != nil {
+							fmt.Println("U have a problem with a Marshalization of user.")
+						}
+
+						w.Write(data)
+						return
+					}
+				}
+				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+
+			}
+
 			data, err := json.Marshal(users)
 			if err != nil {
-				fmt.Printf("U have some problem, guys. %v", err)
+				fmt.Printf("U have a problem, guys. %v", err)
 				return
 			}
 			_, err = w.Write(data)
+			return
 		}
+		http.Error(w, "Not allowed method", http.StatusMethodNotAllowed)
 
 	})
 
