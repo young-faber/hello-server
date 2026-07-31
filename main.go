@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-
 	// "path"
 	"io"
 )
@@ -38,7 +37,9 @@ func main() {
 	http.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
 		var user User
 
-		if r.Method == http.MethodPost {
+		switch r.Method {
+
+		case http.MethodPost:
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				fmt.Println(err)
@@ -52,15 +53,15 @@ func main() {
 				return
 			}
 
-			user.Id = id
 			id++
+			user.Id = id
 
 			users = append(users, user)
 
 			fmt.Fprintf(w, "Added: %v.\n", user.Name)
 			return
-		}
-		if r.Method == http.MethodGet {
+
+		case http.MethodGet:
 			w.Header().Set("Content-Type", "application/json")
 			id_query := r.URL.Query().Get("id")
 			if id_query != "" {
@@ -69,6 +70,7 @@ func main() {
 				if err != nil {
 					fmt.Println("You have a problem with a strconv")
 					http.Error(w, "Wrong input, id has to be an integer", http.StatusBadRequest)
+					return
 				}
 
 				for _, user := range users {
@@ -85,20 +87,85 @@ func main() {
 				}
 				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
 
-			}
-
-			data, err := json.Marshal(users)
-			if err != nil {
-				fmt.Printf("U have a problem, guys. %v", err)
+			} else {
+				data, err := json.Marshal(users)
+				if err != nil {
+					fmt.Printf("U have a problem, guys. %v", err)
+					return
+				}
+				_, err = w.Write(data)
 				return
 			}
-			_, err = w.Write(data)
-			return
-		}
-		http.Error(w, "Not allowed method", http.StatusMethodNotAllowed)
 
+		case http.MethodDelete:
+			w.Header().Set("Content-Type", "application/json")
+			id_query := r.URL.Query().Get("id")
+
+			if id_query != "" {
+				new_id_query, err := strconv.Atoi(id_query)
+
+				if err != nil {
+					fmt.Println("You have a problem with a strconv")
+					http.Error(w, "Wrong input, id has to be an integer", http.StatusBadRequest)
+					return
+				}
+
+				for num, user := range users {
+					if user.Id == new_id_query {
+
+						users = append(users[:num], users[num+1:]...)
+						fmt.Printf("User with ID = %v, number %v, has been deleted ", user.Id, num)
+						fmt.Fprintf(w, "User with ID = %v has been deleted", user.Id)
+						return
+					}
+				}
+				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+			}
+
+		case http.MethodPut:
+
+			w.Header().Set("Content-Type", "application/json")
+			id_query := r.URL.Query().Get("id")
+
+			if id_query != "" {
+				new_id_query, err := strconv.Atoi(id_query)
+
+				if err != nil {
+					fmt.Println("You have a problem with a strconv")
+					http.Error(w, "Wrong input, id has to be an integer", http.StatusBadRequest)
+					return
+				}
+
+				for num, user := range users {
+					if user.Id == new_id_query {
+						body, err := io.ReadAll(r.Body)
+
+						if err != nil {
+							fmt.Println(err)
+							http.Error(w, "Wrong parameters.", http.StatusBadRequest)
+							return
+						}
+
+						err = json.Unmarshal(body, &user)
+
+						if err != nil {
+							fmt.Println(err)
+							http.Error(w, "Unmarshal wrong", http.StatusInternalServerError)
+						}
+
+						fmt.Printf("User with ID = %v, number %v, has been changed ", user.Id, num)
+						fmt.Fprintf(w, "User with ID = %v has been changed", user.Id)
+						return
+					}
+				}
+
+				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+			}
+
+		default:
+			http.Error(w, "Not allowed method", http.StatusMethodNotAllowed)
+		}
 	})
 
 	http.ListenAndServe(":8000", nil)
-
 }
