@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+
 	// "path"
 	"io"
+
+	"golang.org/x/tools/go/analysis/passes/nilfunc"
 )
 
 type User struct {
@@ -19,7 +22,7 @@ type User struct {
 }
 
 var users []User
-var id int
+var ID int
 
 func main() {
 	fmt.Println("Hello, Web!")
@@ -53,8 +56,8 @@ func main() {
 				return
 			}
 
-			id++
-			user.Id = id
+			ID++
+			user.Id = ID
 
 			users = append(users, user)
 
@@ -63,22 +66,23 @@ func main() {
 
 		case http.MethodGet:
 			w.Header().Set("Content-Type", "application/json")
-			id_query := r.URL.Query().Get("id")
-			if id_query != "" {
-				new_id_query, err := strconv.Atoi(id_query)
+			idQuery := r.URL.Query().Get("id")
+			if idQuery != "" {
+				parsedID, err := strconv.Atoi(idQuery)
 
 				if err != nil {
 					fmt.Println("You have a problem with a strconv")
-					http.Error(w, "Wrong input, id has to be an integer", http.StatusBadRequest)
+					http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
 					return
 				}
 
 				for _, user := range users {
-					if user.Id == new_id_query {
+					if user.Id == parsedID {
 						data, err := json.Marshal(user)
 
 						if err != nil {
 							fmt.Println("U have a problem with a Marshalization of user.")
+							return
 						}
 
 						w.Write(data)
@@ -99,19 +103,19 @@ func main() {
 
 		case http.MethodDelete:
 			w.Header().Set("Content-Type", "application/json")
-			id_query := r.URL.Query().Get("id")
+			idQuery := r.URL.Query().Get("id")
 
-			if id_query != "" {
-				new_id_query, err := strconv.Atoi(id_query)
+			if idQuery != "" {
+				parsedID, err := strconv.Atoi(idQuery)
 
 				if err != nil {
 					fmt.Println("You have a problem with a strconv")
-					http.Error(w, "Wrong input, id has to be an integer", http.StatusBadRequest)
+					http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
 					return
 				}
 
 				for num, user := range users {
-					if user.Id == new_id_query {
+					if user.Id == parsedID {
 
 						users = append(users[:num], users[num+1:]...)
 						fmt.Printf("User with ID = %v, number %v, has been deleted ", user.Id, num)
@@ -120,24 +124,29 @@ func main() {
 					}
 				}
 				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+			} else {
+				fmt.Fprint(w, "Write user's id.")
+				fmt.Printf("User hasn't write ID.")
+				return
 			}
 
 		case http.MethodPut:
 
 			w.Header().Set("Content-Type", "application/json")
-			id_query := r.URL.Query().Get("id")
+			idQuery := r.URL.Query().Get("id")
 
-			if id_query != "" {
-				new_id_query, err := strconv.Atoi(id_query)
+			if idQuery != "" {
+				parsedID, err := strconv.Atoi(idQuery)
 
 				if err != nil {
 					fmt.Println("You have a problem with a strconv")
-					http.Error(w, "Wrong input, id has to be an integer", http.StatusBadRequest)
+					http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
 					return
 				}
 
 				for num, user := range users {
-					if user.Id == new_id_query {
+					if user.Id == parsedID {
+						oldId := user.Id
 						body, err := io.ReadAll(r.Body)
 
 						if err != nil {
@@ -147,10 +156,13 @@ func main() {
 						}
 
 						err = json.Unmarshal(body, &user)
+						user.Id = oldId
+						users[num] = user
 
 						if err != nil {
 							fmt.Println(err)
-							http.Error(w, "Unmarshal wrong", http.StatusInternalServerError)
+							http.Error(w, "Unmarshal wrong", http.StatusBadRequest)
+							return
 						}
 
 						fmt.Printf("User with ID = %v, number %v, has been changed ", user.Id, num)
@@ -160,6 +172,10 @@ func main() {
 				}
 
 				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+			} else {
+				fmt.Fprint(w, "Write user's id.")
+				fmt.Printf("User hasn't write ID")
+				return
 			}
 
 		default:
@@ -167,5 +183,11 @@ func main() {
 		}
 	})
 
-	http.ListenAndServe(":8000", nil)
+	err := http.ListenAndServe(":8000", nil)
+
+	if err != nil {
+		fmt.Println("Wrong connection to server.")
+		// http.Error(w, "Error with connetction", http.StatusBadGateway)
+	}
+
 }
