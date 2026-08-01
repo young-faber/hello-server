@@ -4,19 +4,17 @@ package main
 
 import (
 	// "encoding/json"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	_ "modernc.org/sqlite"
 	"net/http"
 	"strconv"
-
-	// "path"
-	"io"
-
-	"golang.org/x/tools/go/analysis/passes/nilfunc"
 )
 
 type User struct {
-	Id   int
+	ID   int
 	Name string
 	Age  int
 }
@@ -25,6 +23,32 @@ var users []User
 var ID int
 
 func main() {
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		age INTEGER NOT NULL
+	);
+	`
+
+	db, err := sql.Open("sqlite", "users.db")
+
+	db.Exec(createTableQuery)
+
+	println(db)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	fmt.Println("Hello, Web!")
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { //Function which prints message to client.
@@ -56,15 +80,32 @@ func main() {
 				return
 			}
 
-			ID++
-			user.Id = ID
+			result, err := db.Exec(
+				"INSERT INTO users (name, age) VALUES (?, ?)",
+				user.Name,
+				user.Age,
+			)
 
-			users = append(users, user)
+			if err != nil {
+				fmt.Println(err)
+				http.Error(w, "Database error", http.StatusInternalServerError)
+				return
+			}
+
+			newID, err := result.LastInsertId()
+			if err != nil {
+				fmt.Println(err)
+				http.Error(w, "Could not get user ID", http.StatusInternalServerError)
+				return
+			}
+
+			user.ID = int(newID)
 
 			fmt.Fprintf(w, "Added: %v.\n", user.Name)
 			return
 
 		case http.MethodGet:
+			var user User
 			w.Header().Set("Content-Type", "application/json")
 			idQuery := r.URL.Query().Get("id")
 			if idQuery != "" {
@@ -76,28 +117,75 @@ func main() {
 					return
 				}
 
-				for _, user := range users {
-					if user.Id == parsedID {
-						data, err := json.Marshal(user)
+				err = db.QueryRow("SELECT id, name, age FROM users WHERE id = ?", parsedID).Scan(&user.ID, &user.Name, &user.Age)
 
-						if err != nil {
-							fmt.Println("U have a problem with a Marshalization of user.")
-							return
-						}
-
-						w.Write(data)
-						return
-					}
+				if err != nil {
+					fmt.Println(err)
+					http.Error(w, "Problem with a DB.", http.StatusBadGateway)
+					return
 				}
+
+				data, err := json.Marshal(user)
+
+				if err != nil {
+					fmt.Println(err)
+					http.Error(w, "Problem with a Marshaling", http.StatusBadGateway)
+					return
+				}
+
+				_, err = w.Write(data)
+
+				if err != nil {
+					fmt.Println(err)
+					http.Error(w, "Problem with a writing", http.StatusBadGateway)
+					return
+				}
+
 				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
 
 			} else {
-				data, err := json.Marshal(users)
+
 				if err != nil {
 					fmt.Printf("U have a problem, guys. %v", err)
 					return
 				}
-				_, err = w.Write(data)
+
+				var users []User
+
+				rows, err := db.Query("SELECT id, name, age FROM users ")
+
+				if err != nil {
+					fmt.Print(err)
+					http.Error(w, "Problem with a DB", http.StatusBadGateway)
+					return
+				}
+
+				for rows.Next() {
+					var user User
+					err := rows.Scan(&user.ID, &user.Name, &user.Age)
+
+					if err != nil {
+						fmt.Print(err)
+						http.Error(w, "Wrong database request", http.StatusBadRequest)
+						return
+					}
+
+					users = append(users, user)
+					fmt.Println(user)
+				}
+				err = rows.Err()
+
+				if err != nil {
+					fmt.Print(err)
+					http.Error(w, "Problem with a DB", http.StatusBadGateway)
+					return
+				}
+				defer rows.Close()
+
+				data, err := json.Marshal(users)
+				var xxx int
+				xxx, err = w.Write(data)
+				fmt.Println(xxx, xxx, xxx)
 				return
 			}
 
@@ -115,11 +203,11 @@ func main() {
 				}
 
 				for num, user := range users {
-					if user.Id == parsedID {
+					if user.ID == parsedID {
 
 						users = append(users[:num], users[num+1:]...)
-						fmt.Printf("User with ID = %v, number %v, has been deleted ", user.Id, num)
-						fmt.Fprintf(w, "User with ID = %v has been deleted", user.Id)
+						fmt.Printf("User with ID = %v, number %v, has been deleted ", user.ID, num)
+						fmt.Fprintf(w, "User with ID = %v has been deleted", user.ID)
 						return
 					}
 				}
@@ -127,6 +215,7 @@ func main() {
 			} else {
 				fmt.Fprint(w, "Write user's id.")
 				fmt.Printf("User hasn't write ID.")
+				http.Error(w, "missing id", http.StatusBadRequest)
 				return
 			}
 
@@ -145,8 +234,8 @@ func main() {
 				}
 
 				for num, user := range users {
-					if user.Id == parsedID {
-						oldId := user.Id
+					if user.ID == parsedID {
+						oldID := user.ID
 						body, err := io.ReadAll(r.Body)
 
 						if err != nil {
@@ -156,8 +245,6 @@ func main() {
 						}
 
 						err = json.Unmarshal(body, &user)
-						user.Id = oldId
-						users[num] = user
 
 						if err != nil {
 							fmt.Println(err)
@@ -165,8 +252,12 @@ func main() {
 							return
 						}
 
-						fmt.Printf("User with ID = %v, number %v, has been changed ", user.Id, num)
-						fmt.Fprintf(w, "User with ID = %v has been changed", user.Id)
+						user.ID = oldID
+						users[num] = user
+
+						fmt.Printf("User with ID = %v, number %v, has been changed ", user.ID, num)
+						fmt.Fprintf(w, "User with ID = %v has been changed", user.ID)
+
 						return
 					}
 				}
@@ -175,6 +266,7 @@ func main() {
 			} else {
 				fmt.Fprint(w, "Write user's id.")
 				fmt.Printf("User hasn't write ID")
+				http.Error(w, "missing id", http.StatusBadRequest)
 				return
 			}
 
@@ -183,7 +275,7 @@ func main() {
 		}
 	})
 
-	err := http.ListenAndServe(":8000", nil)
+	err = http.ListenAndServe(":8000", nil)
 
 	if err != nil {
 		fmt.Println("Wrong connection to server.")
