@@ -35,13 +35,18 @@ func main() {
 
 	db.Exec(createTableQuery)
 
+	_, err = db.Exec(createTableQuery)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	println(db)
 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer db.Close()
 
 	err = db.Ping()
 	if err != nil {
@@ -134,14 +139,12 @@ func main() {
 				}
 
 				_, err = w.Write(data)
-
-				if err != nil {
-					fmt.Println(err)
-					http.Error(w, "Problem with a writing", http.StatusBadGateway)
-					return
-				}
-
-				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+				return
+				// if err != nil {
+				// 	fmt.Println(err)
+				// 	http.Error(w, "Problem with a writing", http.StatusBadGateway)
+				// 	return
+				// }
 
 			} else {
 
@@ -159,6 +162,8 @@ func main() {
 					http.Error(w, "Problem with a DB", http.StatusBadGateway)
 					return
 				}
+
+				defer rows.Close()
 
 				for rows.Next() {
 					var user User
@@ -202,16 +207,25 @@ func main() {
 					return
 				}
 
-				for num, user := range users {
-					if user.ID == parsedID {
+				result, err := db.Exec("DELETE FROM users WHERE id = ?", parsedID)
 
-						users = append(users[:num], users[num+1:]...)
-						fmt.Printf("User with ID = %v, number %v, has been deleted ", user.ID, num)
-						fmt.Fprintf(w, "User with ID = %v has been deleted", user.ID)
-						return
-					}
+				if err != nil {
+					fmt.Println("You have a problem with a DB")
+					http.Error(w, "Problem with a DB", http.StatusBadRequest)
+					return
 				}
-				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+
+				affected, err := result.RowsAffected()
+
+				if affected == 0 {
+					http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
+					return
+				}
+
+				fmt.Printf("User with ID = %v has been deleted ", parsedID)
+				fmt.Fprintf(w, "User with ID = %v has been deleted", parsedID)
+				return
+
 			} else {
 				fmt.Fprint(w, "Write user's id.")
 				fmt.Printf("User hasn't write ID.")
