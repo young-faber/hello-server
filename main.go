@@ -33,13 +33,14 @@ func main() {
 
 	db, err := sql.Open("sqlite", "users.db")
 
-	db.Exec(createTableQuery)
-
 	_, err = db.Exec(createTableQuery)
+
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
+	defer db.Close()
 
 	println(db)
 
@@ -185,7 +186,6 @@ func main() {
 					http.Error(w, "Problem with a DB", http.StatusBadGateway)
 					return
 				}
-				defer rows.Close()
 
 				data, err := json.Marshal(users)
 				var xxx int
@@ -216,6 +216,12 @@ func main() {
 				}
 
 				affected, err := result.RowsAffected()
+
+				if err != nil {
+					fmt.Println("You have a problem with a Affected")
+					http.Error(w, "Problem with a Affected", http.StatusBadRequest)
+					return
+				}
 
 				if affected == 0 {
 					http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
