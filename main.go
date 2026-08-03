@@ -271,7 +271,7 @@ func main() {
 					return
 				}
 
-				result, err := db.Exec("UPDATE users SET name = ?, age = ? WHERE id = ?", &user.Name, &user.Age, parsedID)
+				result, err := db.Exec("UPDATE users SET name = ?, age = ? WHERE id = ?", user.Name, user.Age, parsedID)
 
 				if err != nil {
 					fmt.Println("You have a problem with a db.Exec")
@@ -279,7 +279,12 @@ func main() {
 					return
 				}
 
-				_, err = result.RowsAffected()
+				affected, err := result.RowsAffected()
+
+				if affected == 0 {
+					http.Error(w, "User not found", http.StatusNotFound)
+					return
+				}
 
 				if err != nil {
 					fmt.Println("You have a problem with a RowsAffected")
@@ -287,8 +292,12 @@ func main() {
 					return
 				}
 
-				fmt.Printf("User with ID = %v, has been changed ", user.ID)
-				fmt.Fprintf(w, "User with ID = %v has been changed", user.ID)
+				fmt.Printf("User with ID = %v, has been changed ", parsedID)
+				fmt.Fprintf(w, "User with ID = %v has been changed", parsedID)
+
+			} else {
+				http.Error(w, "missing id", http.StatusBadRequest)
+				return
 			}
 
 		default:
