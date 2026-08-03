@@ -244,6 +244,8 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			idQuery := r.URL.Query().Get("id")
 
+			user := User{}
+
 			if idQuery != "" {
 				parsedID, err := strconv.Atoi(idQuery)
 
@@ -253,41 +255,40 @@ func main() {
 					return
 				}
 
-				for num, user := range users {
-					if user.ID == parsedID {
-						oldID := user.ID
-						body, err := io.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 
-						if err != nil {
-							fmt.Println(err)
-							http.Error(w, "Wrong parameters.", http.StatusBadRequest)
-							return
-						}
-
-						err = json.Unmarshal(body, &user)
-
-						if err != nil {
-							fmt.Println(err)
-							http.Error(w, "Unmarshal wrong", http.StatusBadRequest)
-							return
-						}
-
-						user.ID = oldID
-						users[num] = user
-
-						fmt.Printf("User with ID = %v, number %v, has been changed ", user.ID, num)
-						fmt.Fprintf(w, "User with ID = %v has been changed", user.ID)
-
-						return
-					}
+				if err != nil {
+					fmt.Println("You have a problem with a ReadAll")
+					http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
+					return
 				}
 
-				http.Error(w, "There is not user with a such ID.", http.StatusNotFound)
-			} else {
-				fmt.Fprint(w, "Write user's id.")
-				fmt.Printf("User hasn't write ID")
-				http.Error(w, "missing id", http.StatusBadRequest)
-				return
+				err = json.Unmarshal(body, &user)
+
+				if err != nil {
+					fmt.Println("You have a problem with a Unmarshal")
+					http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
+					return
+				}
+
+				result, err := db.Exec("UPDATE users SET name = ?, age = ? WHERE id = ?", &user.Name, &user.Age, parsedID)
+
+				if err != nil {
+					fmt.Println("You have a problem with a db.Exec")
+					http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
+					return
+				}
+
+				_, err = result.RowsAffected()
+
+				if err != nil {
+					fmt.Println("You have a problem with a RowsAffected")
+					http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
+					return
+				}
+
+				fmt.Printf("User with ID = %v, has been changed ", user.ID)
+				fmt.Fprintf(w, "User with ID = %v has been changed", user.ID)
 			}
 
 		default:
