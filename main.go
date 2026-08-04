@@ -10,15 +10,6 @@ import (
 	"net/http"
 )
 
-type User struct {
-	ID   int
-	Name string
-	Age  int
-}
-
-var users []User
-var ID int
-
 func main() {
 	createTableQuery := `
 	CREATE TABLE IF NOT EXISTS users (
@@ -39,13 +30,6 @@ func main() {
 
 	defer db.Close()
 
-	println(db)
-
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
 	err = db.Ping()
 	if err != nil {
 		fmt.Println(err)
@@ -65,27 +49,7 @@ func main() {
 	})
 
 	http.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-
-		case http.MethodPost:
-			CreateUser(w, r, db)
-			return
-
-		case http.MethodGet:
-			ReadUser(w, r, db)
-			return
-
-		case http.MethodPut:
-			UpdateUser(w, r, db)
-			return
-
-		case http.MethodDelete:
-			DeleteUser(w, r, db)
-			return
-
-		default:
-			http.Error(w, "Not allowed method", http.StatusMethodNotAllowed)
-		}
+		handleUser(w, r, db)
 	})
 
 	err = http.ListenAndServe(":8000", nil)

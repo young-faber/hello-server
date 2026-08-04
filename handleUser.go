@@ -11,16 +11,22 @@ import (
 	"strconv"
 )
 
-// type User struct {
-// 	ID   int
-// 	Name string
-// 	Age  int
-// }
+func handleUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	switch r.Method {
+	case http.MethodPost:
+		createUser(w, r, db)
+	case http.MethodGet:
+		readUser(w, r, db)
+	case http.MethodPut:
+		updateUser(w, r, db)
+	case http.MethodDelete:
+		deleteUser(w, r, db)
+	default:
+		http.Error(w, "Not allowed method", http.StatusMethodNotAllowed)
+	}
+}
 
-// var users []User
-// var ID int
-
-func CreateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func createUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	var user User
 
 	body, err := io.ReadAll(r.Body)
@@ -60,7 +66,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	fmt.Fprintf(w, "Added: %v.\n", user.Name)
 }
 
-func ReadUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func readUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 	var user User
 	w.Header().Set("Content-Type", "application/json")
@@ -141,7 +147,7 @@ func ReadUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 }
 
-func UpdateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func updateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.Header().Set("Content-Type", "application/json")
 	idQuery := r.URL.Query().Get("id")
 
@@ -202,7 +208,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 }
 
-func DeleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.Header().Set("Content-Type", "application/json")
 	idQuery := r.URL.Query().Get("id")
 
