@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	_ "modernc.org/sqlite"
 	"net/http"
 	"strconv"
 )
@@ -97,12 +96,13 @@ func readUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		_, err = w.Write(data)
+
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Problem with a Marshaling", http.StatusBadGateway)
+			return
+		}
 		return
-		// if err != nil {
-		// 	fmt.Println(err)
-		// 	http.Error(w, "Problem with a writing", http.StatusBadGateway)
-		// 	return
-		// }
 
 	} else {
 
@@ -140,10 +140,20 @@ func readUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		data, err := json.Marshal(users)
-		var xxx int
-		xxx, err = w.Write(data)
-		fmt.Println(xxx, xxx, xxx)
-		return
+
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Problem with a Marshaling", http.StatusBadGateway)
+			return
+		}
+		_, err = w.Write(data)
+
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Problem with a write", http.StatusBadGateway)
+			return
+		}
+
 	}
 }
 
@@ -247,7 +257,6 @@ func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		return
 
 	} else {
-		fmt.Fprint(w, "Write user's id.")
 		fmt.Printf("User hasn't write ID.")
 		http.Error(w, "missing id", http.StatusBadRequest)
 		return
