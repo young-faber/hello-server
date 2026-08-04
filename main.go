@@ -68,46 +68,10 @@ func main() {
 	})
 
 	http.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
-		var user User
-
 		switch r.Method {
 
 		case http.MethodPost:
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			err = json.Unmarshal(body, &user)
-
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			result, err := db.Exec(
-				"INSERT INTO users (name, age) VALUES (?, ?)",
-				user.Name,
-				user.Age,
-			)
-
-			if err != nil {
-				fmt.Println(err)
-				http.Error(w, "Database error", http.StatusInternalServerError)
-				return
-			}
-
-			newID, err := result.LastInsertId()
-			if err != nil {
-				fmt.Println(err)
-				http.Error(w, "Could not get user ID", http.StatusInternalServerError)
-				return
-			}
-
-			user.ID = int(newID)
-
-			fmt.Fprintf(w, "Added: %v.\n", user.Name)
+			handleUser(w, r, db)
 			return
 
 		case http.MethodGet:
