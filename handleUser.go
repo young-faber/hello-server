@@ -188,14 +188,14 @@ func updateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 		affected, err := result.RowsAffected()
 
-		if affected == 0 {
-			http.Error(w, "User not found", http.StatusNotFound)
+		if err != nil {
+			fmt.Println("You have a problem with a db.Exec")
+			http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
 			return
 		}
 
-		if err != nil {
-			fmt.Println("You have a problem with a RowsAffected")
-			http.Error(w, "Wrong input, ID has to be an integer", http.StatusBadRequest)
+		if affected == 0 {
+			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
 
