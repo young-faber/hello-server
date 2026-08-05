@@ -16,9 +16,13 @@ import (
 	"io"
 	"net/http"
 	"net/mail"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var jwtSecret = []byte("very-secret-key")
 
 func registerUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	var input RegisterRequest
@@ -111,4 +115,21 @@ func loginUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 
 	fmt.Fprint(w, "Login successful")
+
+	claims := jwt.MapClaims{
+		"user_id": user.ID,
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString(jwtSecret)
+
+	if err != nil {
+		http.Error(w, "Problew with a JWT creating", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Fprint(w, tokenString)
+
 }
