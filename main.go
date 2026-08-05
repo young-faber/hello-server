@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "modernc.org/sqlite"
+	// "net/email"
 	"net/http"
 )
 
@@ -15,9 +16,17 @@ func main() {
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		age INTEGER NOT NULL
+		age INTEGER NOT NULL,
+		email TEXT NOT NULL,
+		password_hash TEXT NOT NULL
 	);
 	`
+
+	// _, err := mail.ParseAddress(email)
+	// if err != nil {
+	// 	http.Error(w, "Invalid email", http.StatusBadRequest)
+	// 	return
+	// }
 
 	db, err := sql.Open("sqlite", "users.db")
 
@@ -40,6 +49,14 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { //Function which prints message to client.
 		fmt.Fprintf(w, "Hello, Web!")
+	})
+
+	http.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		registerUser(w, r, db)
+	})
+
+	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		loginUser(w, r, db)
 	})
 
 	http.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) { //Function which print message to client.
