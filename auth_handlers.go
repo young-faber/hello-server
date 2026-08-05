@@ -7,8 +7,6 @@ package main
 
 import (
 	// "encoding/json"
-
-	_ "database/sql"
 	// "strconv"
 	"database/sql"
 	"encoding/json"
@@ -37,6 +35,7 @@ func registerUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	err = json.Unmarshal(body, &input)
 
 	if err != nil {
+		fmt.Println(err)
 		http.Error(w, "Failed to parse JSON", http.StatusBadRequest)
 		return
 	}
@@ -61,7 +60,7 @@ func registerUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	_, err = db.Exec("INSERT INTO users (name, age, email, password_hash) VALUES (?, ?, ?, ?)", input.Name, input.Age, input.Email, string(password_hash))
 
 	if err != nil {
-		http.Error(w, "Problew with a db.Exec", http.StatusBadRequest)
+		http.Error(w, "Problew with a db.Exec", http.StatusInternalServerError)
 		return
 	}
 
@@ -110,11 +109,9 @@ func loginUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password))
 
 	if err != nil {
-		http.Error(w, "Wrong email or password", http.StatusBadRequest)
+		http.Error(w, "Wrong email or password", http.StatusUnauthorized)
 		return
 	}
-
-	fmt.Fprint(w, "Login successful")
 
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
@@ -125,11 +122,31 @@ func loginUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 	tokenString, err := token.SignedString(jwtSecret)
 
+	type LoginResponse struct {
+		Token string `json:"token"`
+	}
+
 	if err != nil {
-		http.Error(w, "Problew with a JWT creating", http.StatusBadRequest)
+		http.Error(w, "Problew with a JWT creating", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Fprint(w, tokenString)
+	response := LoginResponse{
+		Token: tokenString,
+	}
+
+	data, err := json.Marshal(response)
+
+	if err != nil {
+		http.Error(w, "Could not create response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(data)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 }
